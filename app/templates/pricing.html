@@ -36,9 +36,12 @@
     .signal-tag.warning{background:#fff4df;color:#9a5a00}
     .signal-tag.negative{background:#fde8e8;color:#a12b2b}
     .signal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-    .signal-tile{border:1px solid #d6e3f0;border-radius:12px;padding:10px 12px;background:#fff}
+    .signal-tile{position:relative;border:1px solid #d6e3f0;border-radius:12px;padding:10px 12px;background:#fff;cursor:help}
     .signal-tile strong{display:block;font-size:.78rem;color:#5b7186;margin-bottom:4px}
     .signal-tile span{font-size:1.05rem;font-weight:800;color:#17324a}
+    .signal-tile::after{content:attr(data-tooltip);position:absolute;left:12px;right:12px;bottom:calc(100% + 10px);padding:9px 10px;border-radius:10px;background:#17324a;color:#f8fbfe;font-size:.8rem;font-weight:600;line-height:1.35;box-shadow:0 10px 24px rgba(23,50,74,.22);opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .16s ease,transform .16s ease;z-index:10}
+    .signal-tile::before{content:"";position:absolute;left:22px;bottom:calc(100% + 4px);border:6px solid transparent;border-top-color:#17324a;opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .16s ease,transform .16s ease;z-index:10}
+    .signal-tile:hover::after,.signal-tile:hover::before,.signal-tile:focus-visible::after,.signal-tile:focus-visible::before{opacity:1;transform:translateY(0)}
     .signal-note{margin-top:12px;font-size:.84rem;color:#5b7186}
     .steps{display:grid;gap:10px}
     .step{border:1px solid var(--border);border-radius:10px;background:#fcfeff;overflow:hidden}
@@ -144,6 +147,7 @@
     function pricePositionTone(current,avg){const a=Number(avg),c=Number(current);if(!Number.isFinite(a)||!Number.isFinite(c))return{label:"Comp position unavailable",tone:"warning"};if(c<a)return{label:"Below nearby comps",tone:"positive"};if(c>a)return{label:"Above nearby comps",tone:"warning"};return{label:"At comp average",tone:"warning"};}
     function compactRisk(value){if(!value)return"Low immediate risk.";const text=String(value);return text.length>90?`${text.slice(0,87)}...`:text;}
     function computeTrackPosition(value,min,max){const v=Number(value),lo=Number(min),hi=Number(max);if(!Number.isFinite(v)||!Number.isFinite(lo)||!Number.isFinite(hi)||hi<=lo)return 50;return clampPct(((v-lo)/(hi-lo))*100);}
+    function signalTile(label,value,tooltip){return `<div class="signal-tile" tabindex="0" title="${escHtml(tooltip)}" data-tooltip="${escHtml(tooltip)}"><strong>${escHtml(label)}</strong><span>${escHtml(value)}</span></div>`;}
     function setSelectedPropertyProfile(profileId){selectedPropertyProfile=propertyProfilesById.get(profileId)||null;propertyProfileEl.value=profileId;}
     function setConfidenceBadge(confidence){if(!confidence){confidenceBadgeEl.hidden=true;return;}confidenceBadgeEl.hidden=false;confidenceBadgeEl.className=`badge ${confidence}`;confidenceBadgeEl.textContent=confidence;}
     function renderSteps(steps){stepsEl.innerHTML="";for(const step of (steps||[])){const card=document.createElement("div");card.className="step";card.innerHTML=`<details><summary><span class="module-badge">${escHtml(step.module||"module")}</span></summary><pre>${escHtml(JSON.stringify({prompt:step.prompt,response:step.response},null,2))}</pre></details>`;stepsEl.appendChild(card);}}
@@ -190,12 +194,12 @@
       const reviewState=qualityTone(signals.review_score_gap),volumeState=volumeTone(signals.review_volume_strength),pressureState=pressureTone(signals.market_pressure);
       signalsEl.innerHTML=`
         <div class="signal-grid">
-          <div class="signal-tile"><strong>Comp Avg</strong><span>${escHtml(formatCurrency(signals.neighbor_avg_price))}</span></div>
-          <div class="signal-tile"><strong>Range</strong><span>${escHtml(`${formatCurrency(signals.neighbor_min_price)} - ${formatCurrency(signals.neighbor_max_price)}`)}</span></div>
-          <div class="signal-tile"><strong>Review Position</strong><span>${escHtml(reviewState.label)}</span></div>
-          <div class="signal-tile"><strong>Review Gap</strong><span>${escHtml(formatSignedDelta(signals.review_score_gap))}</span></div>
-          <div class="signal-tile"><strong>Review Volume</strong><span>${escHtml(toTitle(signals.review_volume_strength||"n/a"))}</span></div>
-          <div class="signal-tile"><strong>Market Pressure</strong><span>${escHtml(toTitle(signals.market_pressure||"n/a"))}</span></div>
+          ${signalTile("Comp Avg",formatCurrency(signals.neighbor_avg_price),"Average nightly price across the nearby comparison set used as the main pricing benchmark.")}
+          ${signalTile("Range",`${formatCurrency(signals.neighbor_min_price)} - ${formatCurrency(signals.neighbor_max_price)}`,"Lowest to highest nearby nightly rates, which shows how spread out the local market currently is.")}
+          ${signalTile("Review Position",reviewState.label,"Plain-language summary of how this property's review quality compares with nearby listings.")}
+          ${signalTile("Review Gap",formatSignedDelta(signals.review_score_gap),"Numeric difference between this property's overall review score and the nearby average. Negative means below market.")}
+          ${signalTile("Review Volume",toTitle(signals.review_volume_strength||"n/a"),"Shows whether this property has a thinner, similar, or stronger review base than nearby competitors.")}
+          ${signalTile("Market Pressure",toTitle(signals.market_pressure||"n/a"),"Combined demand signal from events, holidays, and weather for the selected horizon.")}
         </div>
         <div class="tag-row" style="margin-top:12px">
           <span class="signal-tag ${volumeState.tone}">${escHtml(volumeState.label)}</span>
