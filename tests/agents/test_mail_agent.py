@@ -103,6 +103,12 @@ MAIL_MODULE_NAMES = {
     "mail_agent.leave_review_policy",
     "mail_agent.property_review_policy",
     "mail_agent.answer_generation",
+    # LLM call steps (new — one per actual chat.generate() call)
+    "mail_agent.guest_reply_generation",
+    "mail_agent.leave_review_generation",
+    "mail_agent.property_review_response_generation",
+    "mail_agent.review_reply_option_generation",
+    "mail_agent.push_fetch",
 }
 
 
@@ -342,6 +348,49 @@ class TestMailAgentPolicies:
         result = agent.run("check inbox")
         assert result.response is not None
         assert len(result.response) > 0
+
+    def test_good_review_emits_llm_step(self) -> None:
+        """property_review_response_generation step appears for good reviews."""
+        agent = _make_agent()
+        result = agent.run("check inbox")
+        llm_modules = [s.module for s in result.steps]
+        assert "mail_agent.property_review_response_generation" in llm_modules
+        for step in result.steps:
+            if step.module == "mail_agent.property_review_response_generation":
+                assert "system_prompt" in step.prompt
+                assert "user_prompt" in step.prompt
+                assert "text" in step.response
+
+    def test_bad_review_emits_review_reply_option_steps(self) -> None:
+        """review_reply_option_generation steps appear (one per style) for bad reviews."""
+        agent = _make_agent(bad_review_threshold=3)
+        result = agent.run("check inbox")
+        option_steps = [s for s in result.steps if s.module == "mail_agent.review_reply_option_generation"]
+        # 3 styles generated for each bad review — demo has one bad review
+        assert len(option_steps) >= 3
+
+    def test_positive_leave_review_emits_llm_step(self) -> None:
+        """leave_review_generation step appears when owner provides a positive rating."""
+        agent = _make_agent()
+        owner_action = {"email_id": "demo-002", "rating": 4}
+        result = agent.run_with_action("check inbox", owner_action=owner_action)
+        llm_modules = [s.module for s in result.steps]
+        assert "mail_agent.leave_review_generation" in llm_modules
+
+    def test_chat_unavailable_no_llm_steps(self) -> None:
+        """No LLM step modules appear when chat service is unavailable."""
+        agent = _make_agent(chat_available=False)
+        result = agent.run("check inbox")
+        llm_only_modules = {
+            "mail_agent.guest_reply_generation",
+            "mail_agent.leave_review_generation",
+            "mail_agent.property_review_response_generation",
+            "mail_agent.review_reply_option_generation",
+        }
+        for step in result.steps:
+            assert step.module not in llm_only_modules, (
+                f"LLM step {step.module} appeared despite chat being unavailable"
+            )
 
 
 # -- run_on_messages (new-email / push path) with mock emails -----------------

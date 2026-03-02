@@ -1,295 +1,181 @@
-# Airbnb Business Agent (Course Project Scaffold)
+# Airbnb Business Agent
 
-This repository includes a multi-agent-ready API scaffold for hospitality intelligence.
+A multi-agent AI system for Airbnb property management intelligence. The platform provides review analysis, market monitoring, competitive benchmarking, dynamic pricing, and email management through specialized domain agents orchestrated by a central router.
 
-## Implemented endpoints
+![Architecture](docs/architecture.svg)
 
-- `GET /api/team_info`
-- `GET /api/active_owner_context`
-- `GET /api/property_profiles`
-- `GET /api/agent_info`
-- `GET /api/model_architecture` (PNG)
-- `POST /api/execute`
-- `GET /api/market_watch/alerts`
-- `POST /api/market_watch/run`
+## Features
 
-These endpoint names and response shapes are aligned with the course PDF requirements.
+### Reviews Agent
+Semantic search over guest reviews using vector embeddings (Pinecone), with automatic web scraping fallback for fresh data. Generates evidence-backed answers with relevance guardrails.
 
-## Current architecture
+### Market Watch Agent
+Fully deterministic (zero LLM calls) market signal collector. Monitors weather forecasts (Open-Meteo), nearby events (Ticketmaster), and public holidays (Nager.Date) to generate demand alerts. Runs autonomously via internal scheduler or Vercel cron. Deduplicates alerts using UUID5.
 
-- `router_agent` decides which domain agent to run.
-- `reviews_agent` performs:
-  - `reviews_agent.retrieval` (embeddings + Pinecone search)
-  - `reviews_agent.answer_generation` (LLMOD chat synthesis)
-- `market_watch_agent` performs:
-  - `market_watch_agent.signal_collection` (weather/events/holidays)
-  - `market_watch_agent.weather_analysis`
-  - `market_watch_agent.event_analysis`
-  - `market_watch_agent.demand_analysis`
-  - `market_watch_agent.alert_decision`
-  - `market_watch_agent.inbox_write`
-  - `market_watch_agent.answer_generation`
-- Each execution returns `steps` with `module`, `prompt`, and `response`.
+### Analyst Agent
+Benchmarks your property against neighboring listings on numeric and categorical metrics. Fetches structured listing data from Supabase and produces interactive comparison visualizations.
 
-## Project structure
+### Pricing Agent
+Deterministic comp-based nightly rate recommendations. Incorporates neighbor pricing, market signals, and review volume as confidence modifiers. Supports conservative, recommended, and aggressive pricing modes.
 
-- `app/main.py`: FastAPI app + required endpoints.
-- `app/config.py`: environment-driven settings.
-- `app/schemas.py`: request/response schemas.
-- `app/agents/`: router + domain agents.
-- `app/services/`: embeddings/chat/pinecone wrappers.
-- `app/services/market_data_providers.py`: weather/events/holiday provider clients.
-- `app/services/market_alert_store.py`: SQLite/Postgres alert inbox backends.
-- `app/services/market_watch_scheduler.py`: autonomous run scheduler.
-- `app/architecture.py`: generates architecture PNG.
-- `app/templates/index.html`: minimal required GUI.
+### Mail Agent
+Gmail integration with OAuth2 and push webhooks. Classifies incoming emails using LLM, generates review response drafts, and supports human-in-the-loop approval before sending. Real-time SSE notifications.
 
-## Environment variables
+## UI Pages
 
-Minimum for real retrieval and synthesis:
+| Page | Description |
+|------|-------------|
+| **Dashboard** | Query interface for review analysis with evidence panel and step trace |
+| **Market Watch** | Interactive calendar with color-coded demand intensity and event details |
+| **Mail** | Real-time notification feed with email classification and reply workflow |
+| **Analysis** | Comparative SVG charts benchmarking your property against neighbors |
+| **Pricing** | Rate recommendation console with signal breakdown and confidence scoring |
 
-- `PINECONE_API_KEY`
-- `LLMOD_API_KEY`
-- `BASE_URL`
+## Screenshots
 
-Recommended:
+### Reviews Agent Console
 
-- `PINECONE_INDEX_NAME=airbnb-reviews`
-- `PINECONE_NAMESPACE=airbnb-reviews`
-- `CHAT_MODEL=gpt-4.1-mini`
-- `EMBEDDING_MODEL=RPRTHPB-text-embedding-3-small`
-- `EMBEDDING_DEPLOYMENT=RPRTHPB-text-embedding-3-small`
-- `SCRAPING_ENABLED=false`
-- `SCRAPING_ALLOWLIST=google_maps,tripadvisor`
-- `SCRAPING_DEFAULT_MAX_REVIEWS=5`
-- `SCRAPING_TIMEOUT_SECONDS=45`
-- `REVIEWS_RELEVANCE_SCORE_THRESHOLD=0.40`
-- `SCRAPING_QUARANTINE_UPSERT_ENABLED=true`
-- `SCRAPING_QUARANTINE_NAMESPACE=airbnb-reviews-web-quarantine`
-- `TICKETMASTER_API_KEY=` (required for event signals)
+Ask natural-language questions about guest reviews. The agent retrieves semantically relevant evidence from Pinecone and synthesises an actionable answer with a confidence score.
 
-Chat provider selection (chat-completions only):
+![Reviews agent — Wi-Fi query with supporting evidence](docs/screenshots/Reviews_agent_example2.PNG)
 
-- `LLM_CHAT_PROVIDER=llmod` (`llmod` or `openrouter`)
-- `OPENROUTER_API_KEY=` (required when using `openrouter`)
-- `OPENROUTER_BASE_URL=https://openrouter.ai/api/v1`
-- `OPENROUTER_CHAT_MODEL=openai/gpt-4o-mini`
-- `OPENROUTER_HTTP_REFERER=` (optional attribution header)
-- `OPENROUTER_APP_TITLE=` (optional attribution header)
+*Example: asking how your Wi-Fi compares to nearby competitors. The response cites specific review excerpts and recommends concrete action. "Show supporting evidence (6)" expands the raw evidence panel.*
 
-Notes:
+![Reviews agent — compact view](docs/screenshots/Reviews_agent_example1.PNG)
 
-- Embeddings and Pinecone retrieval stay on the existing LLMOD embedding configuration.
-- You can override chat provider per request with `llm_provider` in `POST /api/execute`.
+*Same query at a smaller viewport, showing the full evidence list expanded inline.*
 
-Active owner/property defaults (used when request omits context fields):
+---
 
-- `ACTIVE_OWNER_ID`
-- `ACTIVE_OWNER_NAME`
-- `ACTIVE_PROPERTY_ID`
-- `ACTIVE_PROPERTY_NAME`
-- `ACTIVE_PROPERTY_CITY`
-- `ACTIVE_PROPERTY_REGION`
-- `ACTIVE_PROPERTY_LAT`
-- `ACTIVE_PROPERTY_LON`
-- `ACTIVE_PROPERTY_GOOGLE_MAPS_URL`
-- `ACTIVE_PROPERTY_TRIPADVISOR_URL`
-- `ACTIVE_MAX_SCRAPE_REVIEWS`
+### Reviews Threshold Labeling
 
-Optional secondary property profile (shown in UI selector):
+Offline calibration tool used to manually curate which Pinecone-retrieved reviews are genuinely relevant to a prompt. Cases are loaded from the vector search results; you tick the relevant candidates and decide whether the agent should answer at all.
 
-- `SECONDARY_PROPERTY_ID`
-- `SECONDARY_PROPERTY_NAME`
-- `SECONDARY_PROPERTY_CITY`
-- `SECONDARY_PROPERTY_REGION`
-- `SECONDARY_PROPERTY_LAT`
-- `SECONDARY_PROPERTY_LON`
-- `SECONDARY_PROPERTY_GOOGLE_MAPS_URL`
-- `SECONDARY_PROPERTY_TRIPADVISOR_URL`
-- `SECONDARY_MAX_SCRAPE_REVIEWS`
+![Reviews threshold labeling UI](docs/screenshots/Reviews_Threshold_Labeling.PNG)
 
-Market-watch settings:
+*Left panel: list of labeling cases grouped by property and topic, with labeled/pending status badges. Right panel: the active case with candidate checkboxes, a binary "Should the agent answer?" decision, and Save / Save+Next buttons. Progress is tracked at the top (e.g. 11 of 39 labeled, 32%).*
 
-- `MARKET_WATCH_ENABLED=true`
-- `MARKET_WATCH_AUTONOMOUS_ENABLED=true`
-- `MARKET_WATCH_AUTONOMOUS_MODE=internal` (`internal` or `external_cron`)
-- `MARKET_WATCH_INTERVAL_HOURS=24`
-- `MARKET_WATCH_LOOKAHEAD_DAYS=14`
-- `MARKET_WATCH_EVENT_RADIUS_KM=15`
-- `MARKET_WATCH_MAX_ALERTS_PER_RUN=8`
-- `MARKET_WATCH_ALERTS_DB_PATH=data/market_watch_alerts.db`
-- `MARKET_WATCH_STORM_WIND_KPH_THRESHOLD=45`
-- `MARKET_WATCH_HEAVY_RAIN_MM_THRESHOLD=20`
-- `MARKET_WATCH_SNOW_CM_THRESHOLD=4`
-- `MARKET_WATCH_CRON_SECRET=` (required in `external_cron` mode)
-- `DATABASE_URL=` (set to Postgres URL on Vercel)
+---
 
-Team info values:
+### Market Watch
 
-- `GROUP_BATCH_ORDER_NUMBER`
-- `TEAM_NAME`
-- `STUDENT_1_NAME`, `STUDENT_1_EMAIL`
-- `STUDENT_2_NAME`, `STUDENT_2_EMAIL`
-- `STUDENT_3_NAME`, `STUDENT_3_EMAIL`
+Fully deterministic signal collector — no LLM calls. Monitors weather, nearby events (Ticketmaster), and public holidays to surface demand signals for your property's location.
 
-## Run locally
+![Market Watch calendar and event detail](docs/screenshots/market_watch_page.PNG)
+
+*Color-coded calendar: darker green = more events on that day. Clicking a day opens the right-side detail panel showing each event's name, venue, distance, event type, and demand intensity label.*
+
+---
+
+### Mail Agent Console
+
+Real-time Gmail integration via OAuth2 and push webhooks. Classifies incoming reviews, generates reply drafts, and gates sending on human approval.
+
+![Mail console — idle, no pending notifications](docs/screenshots/mail_agent_no_emails_situation.PNG)
+
+*Idle state: SSE connection shown as "Connecting…", no pending notifications. The "Auto-send good reviews (rating > 3) without approval" checkbox enables autonomous replies for high-rated reviews.*
+
+![Mail console — incoming bad review with draft reply](docs/screenshots/mail_agent_new_email.PNG)
+
+*Live state (green dot): a new 2-star review from guest Jordan triggered a notification. The agent classified it as requiring owner consultation (below rating threshold), generated an apologetic draft, and presents reply-style options (apologetic / neutral / brief_thanks) plus an optional owner-instructions field before "Approve and send".*
+
+![Draft delivered to Gmail](docs/screenshots/draft_sent_to_gmail_by_agent.PNG)
+
+*The approved reply as it appears in the actual Gmail thread — sent directly from the property's Gmail account via the Gmail API.*
+
+---
+
+### Analysis Console
+
+Benchmarks your property against neighboring listings across all numeric review dimensions. Queries are answered in natural language, backed by structured Supabase data.
+
+![Analysis console — full page](docs/screenshots/Analysis%20Console.png)
+
+*Top section: narrative answer identifying which metrics are below neighborhood average and what to prioritise. Bottom section: a "Numeric Comparison" grid with mini distribution charts for Overall Rating, Location, Value, Accuracy, Communication, Check-in, and Cleanliness.*
+
+![Numeric comparison charts — metric hover explanation](docs/screenshots/Numeric_comparison_graph_explained_by_model.PNG)
+
+*Zoomed-in view of the comparison grid. Each chart plots owner marker (teal diamond), neighbor average (yellow dashed line), and individual neighbor dots. Clicking a metric opens the "Selection" panel on the right, where the model explains the gap and gives targeted improvement advice — here for the Communication sub-score.*
+
+---
+
+### Pricing Console
+
+Deterministic comp-based nightly rate recommendations combining neighbor pricing, market signals, and review volume as a confidence modifier.
+
+![Pricing console with signal tooltips](docs/screenshots/Price%20console%20with%20hovering.PNG)
+
+*Query: "What should I charge for next week?" Answer: Hold at $80 (0% change). The Recommendation panel shows current vs. recommended rate on a comp range bar ($55–$175, avg $106.10). The Signals panel breaks down Comp Avg, Review Position, Review Gap, Review Volume, and Market Pressure. Tag pills summarise the key factors at a glance. Hovering a signal card shows a tooltip explaining what that signal represents.*
+
+## Tech Stack
+
+- **Backend**: FastAPI, Uvicorn
+- **Agent orchestration**: LangGraph, LangChain
+- **LLM**: Azure OpenAI / OpenRouter (configurable per request)
+- **Vector DB**: Pinecone
+- **Database**: SQLite (local) / Postgres (production)
+- **Listing data**: Supabase
+- **Email**: Gmail API (OAuth2 + push webhooks)
+- **Market data**: Open-Meteo, Ticketmaster, Nager.Date
+- **Web scraping**: Playwright (Google Maps, TripAdvisor)
+- **Deployment**: Vercel (serverless) / Render
+
+## Quick Start
 
 ```bash
-py -m pip install -r requirements.txt
-py -m playwright install chromium
-py -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# Install dependencies
+pip install -r requirements.txt
+pip install -r requirements-dev.txt   # for tests
+python -m playwright install chromium  # for web scraping
+
+# Configure environment
+cp .env.example .env  # edit with your API keys
+
+# Run
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Open:
+Open `http://localhost:8000/` for the UI or `http://localhost:8000/docs` for the API docs.
 
-- UI: `http://localhost:8000/`
-- Docs: `http://localhost:8000/docs`
+## API Endpoints
 
-## Market-watch usage
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/team_info` | Team metadata |
+| `GET` | `/api/agent_info` | Registered agents and their modules |
+| `GET` | `/api/model_architecture` | Architecture diagram (SVG) |
+| `GET` | `/api/active_owner_context` | Current property context |
+| `GET` | `/api/property_profiles` | Available property profiles |
+| `POST` | `/api/execute` | Route a prompt to the appropriate agent |
+| `POST` | `/api/market_watch/run` | Trigger a market watch cycle |
+| `GET` | `/api/market_watch/alerts` | Retrieve market alerts |
+| `POST` | `/api/pricing` | Get pricing recommendation |
+| `POST` | `/api/analysis/run` | Run competitive analysis |
 
-Trigger one cycle manually:
+## Project Structure
 
-```bash
-curl -X POST http://localhost:8000/api/market_watch/run
+```
+app/
+  agents/          # Router + 5 domain agents (reviews, market_watch, analyst, pricing, mail)
+  services/        # Shared service layer (LLM, embeddings, vector DB, Gmail, market data)
+  templates/       # Jinja2 HTML pages (dashboard, market watch, mail, analysis, pricing)
+  static/          # CSS + generated architecture diagram
+  main.py          # FastAPI app, endpoint definitions, startup
+  config.py        # Environment-driven configuration
+  schemas.py       # Pydantic request/response models
+api/
+  index.py         # Vercel serverless entry point
+scripts/           # Data ingestion, EDA, threshold calibration, diagnostics
+tests/             # Pytest suite for agents, services, and API contracts
 ```
 
-Read latest alerts:
+## Environment Variables
 
-```bash
-curl "http://localhost:8000/api/market_watch/alerts?limit=20"
-```
+See the full list of configuration options in [app/config.py](app/config.py). Key variables:
 
-Read alerts for a specific profile scope:
-
-```bash
-curl "http://localhost:8000/api/market_watch/alerts?limit=20&owner_id=owner_001&property_id=10046908"
-```
-
-Run market-watch for an explicit property context:
-
-```bash
-curl -X POST http://localhost:8000/api/market_watch/run \
-  -H "Content-Type: application/json" \
-  -d '{
-    "owner_id": "owner_001",
-    "property_id": "10046908",
-    "property_name": "Cozy Vintage-Styled Unit w/ Patio",
-    "city": "Los Angeles",
-    "region": "los angeles",
-    "latitude": 34.01542,
-    "longitude": -118.29229
-  }'
-```
-
-Ask via `/api/execute` (router sends market-intel prompts to `market_watch_agent`):
-
-```json
-{
-  "prompt": "Are there any nearby events next week that could increase demand?"
-}
-```
-
-Force chat provider for one request:
-
-```json
-{
-  "prompt": "What do guests think about wifi reliability?",
-  "llm_provider": "openrouter"
-}
-```
-
-## Sample properties for validation
-
-Based on current local review archives:
-
-- High-review sample: `region=los angels`, `property_id=42409434` (`3151` reviews)
-- Low-review sample: `region=los angels`, `property_id=290761` (`1` review)
-
-Example execute request:
-
-```json
-{
-  "prompt": "What do guests think about wifi reliability?",
-  "property_id": "42409434",
-  "region": "los angels",
-  "max_scrape_reviews": 5
-}
-```
-
-Generate sample properties and run smoke tests:
-
-```bash
-py -3.12 scripts/select_sample_properties.py
-py -3.12 scripts/run_property_smoke_tests.py
-```
-
-Targeted one-property ingest into test namespace (low-review profile example):
-
-```bash
-py -3.12 scripts/pinecone_reviews_ingest.py \
-  --mode upsert \
-  --index-name airbnb-reviews \
-  --namespace airbnb-reviews-test \
-  --selection-mode manual \
-  --property-ids-file data/property_ids_low_review.txt \
-  --max-properties 1 \
-  --max-reviews 20 \
-  --no-resume \
-  --checkpoint-path ingest_state/reviews_ingest_low_property_checkpoint.json
-```
-
-Smoke test output is saved to:
-
-- `outputs/sample_properties.json`
-- `outputs/property_smoke_test_results.json`
-
-## Relevance-threshold calibration workflow
-
-Build deterministic benchmark cases (60 total by default, balanced high/low properties):
-
-```bash
-py -3.12 scripts/build_reviews_threshold_benchmark.py --namespace airbnb-reviews-test
-```
-
-Export candidate evidence pool (`top_k=20`) for manual labeling:
-
-```bash
-py -3.12 scripts/export_threshold_labeling_pool.py --namespace airbnb-reviews-test
-```
-
-Initialize manual gold CSV template:
-
-```bash
-py -3.12 scripts/init_reviews_threshold_gold.py --overwrite
-```
-
-After filling `outputs/reviews_threshold_gold.csv`, optimize threshold and produce artifacts:
-
-```bash
-py -3.12 scripts/optimize_reviews_threshold.py
-```
-
-Run fixed-subset validation smoke (scraping disabled to isolate VDB behavior):
-
-```bash
-py -3.12 scripts/run_reviews_threshold_validation.py --namespace airbnb-reviews-test --threshold 0.40
-```
-
-## Vercel transition notes
-
-- `vercel.json` is included with daily cron calling `POST /api/market_watch/run`.
-- `api/index.py` exports the FastAPI app for Vercel runtime.
-- For Vercel:
-  - set `MARKET_WATCH_AUTONOMOUS_MODE=external_cron`
-  - set `MARKET_WATCH_CRON_SECRET`
-  - set `DATABASE_URL` to Postgres (SQLite is not durable in serverless)
-  - set the same cron secret in your Vercel cron auth flow
-
-## Notes for future agents
-
-To add another agent later:
-
-1. Create a new agent in `app/agents/`.
-2. Register it in `agent_registry` in `app/main.py`.
-3. Update `router_agent` routing logic.
-4. Add matching module name(s) to the architecture diagram generator.
+- `PINECONE_API_KEY`, `PINECONE_INDEX_NAME` -- vector database
+- `LLMOD_API_KEY`, `BASE_URL` -- LLM gateway
+- `OPENROUTER_API_KEY` -- alternative LLM provider
+- `TICKETMASTER_API_KEY` -- event data for market watch
+- `DATABASE_URL` -- Postgres (production) or SQLite fallback
+- `ACTIVE_PROPERTY_*` -- default property profile

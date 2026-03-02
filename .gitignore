@@ -41,3 +41,16 @@ airbnb_listing_data/
 
 # Logs
 *.log
+
+# Internal working docs
+handsoff.json
+instruction-codex.md
+instructions-codex.md
+scraping-plans.md
+*_PLAN.md
+*REMEDIATION*.md
+*MISMATCH*.md
+
+# Test artifacts
+.pytest_tmp/
+test_arch.png

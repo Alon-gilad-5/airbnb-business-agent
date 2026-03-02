@@ -540,6 +540,7 @@ class MailPipeline:
     ) -> tuple[dict[str, Any], list[StepLog]]:
         importance = _score_importance(cls_email)
         msg = cls_email.message
+        llm_steps: list[StepLog] = []
 
         action: dict[str, Any] = {
             "email_id": msg.id,
@@ -564,6 +565,8 @@ class MailPipeline:
             draft_text = self._try_generate(
                 *_guest_reply_prompts(cls_email),
                 fallback="Thank you for your message. I'll get back to you shortly.",
+                module="mail_agent.guest_reply_generation",
+                llm_steps=llm_steps,
             )
             action.update(
                 action="draft_reply",
@@ -584,7 +587,7 @@ class MailPipeline:
             prompt={"email_id": msg.id, "importance": importance},
             response={"action": action["action"], "has_draft": action.get("draft") is not None},
         )
-        return action, [step]
+        return action, llm_steps + [step]
 
     # -- Leave-review flow ---------------------------------------------------------
 
@@ -595,6 +598,7 @@ class MailPipeline:
     ) -> tuple[dict[str, Any], list[StepLog]]:
         guest_name = cls_email.extracted_guest_name or "Guest"
         msg = cls_email.message
+        llm_steps: list[StepLog] = []
         action: dict[str, Any] = {
             "email_id": msg.id,
             "thread_id": msg.thread_id,
@@ -614,6 +618,8 @@ class MailPipeline:
                     draft = self._try_generate(
                         sys_p, usr_p,
                         fallback=f"Great guest! {guest_name} was wonderful to host.",
+                        module="mail_agent.leave_review_generation",
+                        llm_steps=llm_steps,
                     )
                 else:
                     issues = owner_action.get("issues", [])
@@ -622,6 +628,8 @@ class MailPipeline:
                     draft = self._try_generate(
                         sys_p, usr_p,
                         fallback=f"Had some challenges hosting {guest_name}.",
+                        module="mail_agent.leave_review_generation",
+                        llm_steps=llm_steps,
                     )
                 action.update(
                     action="review_draft_ready",
@@ -638,7 +646,7 @@ class MailPipeline:
                         "has_draft": True,
                     },
                 )
-                return action, [step]
+                return action, llm_steps + [step]
 
         action.update(
             action="awaiting_owner_rating",
@@ -664,6 +672,7 @@ class MailPipeline:
         guest_name = cls_email.extracted_guest_name or "Guest"
         rating = cls_email.extracted_rating
         msg = cls_email.message
+        llm_steps: list[StepLog] = []
         action: dict[str, Any] = {
             "email_id": msg.id,
             "thread_id": msg.thread_id,
@@ -707,25 +716,41 @@ class MailPipeline:
                     sys_p, usr_p = _review_response_prompts(guest_name, rating, msg.body)
                     if owner_instructions:
                         usr_p += f"\n\nOwner instructions: {owner_instructions}"
-                    draft = self._try_generate(sys_p, usr_p, fallback="Thank you for your feedback.")
+                    draft = self._try_generate(
+                        sys_p, usr_p,
+                        fallback="Thank you for your feedback.",
+                        module="mail_agent.property_review_response_generation",
+                        llm_steps=llm_steps,
+                    )
                     reply_style = owner_action.get("reply_style")
                     if reply_style:
-                        opts = self._generate_review_reply_options(guest_name, rating, msg.body)
+                        opts = self._generate_review_reply_options(
+                            guest_name, rating, msg.body, llm_steps=llm_steps,
+                        )
                         for opt in opts:
                             if opt.get("style") == reply_style:
                                 draft = opt.get("draft", draft)
                                 break
                     action.update(action="response_draft_ready", draft=draft)
                 else:
-                    reply_options = self._generate_review_reply_options(guest_name, rating, msg.body)
+                    reply_options = self._generate_review_reply_options(
+                        guest_name, rating, msg.body, llm_steps=llm_steps,
+                    )
                     action.update(reply_options=reply_options, draft=reply_options[0]["draft"] if reply_options else None)
             else:
-                reply_options = self._generate_review_reply_options(guest_name, rating, msg.body)
+                reply_options = self._generate_review_reply_options(
+                    guest_name, rating, msg.body, llm_steps=llm_steps,
+                )
                 action.update(reply_options=reply_options, draft=reply_options[0]["draft"] if reply_options else None)
         else:
             effective_rating = rating or 5
             sys_p, usr_p = _review_response_prompts(guest_name, effective_rating, msg.body)
-            draft = self._try_generate(sys_p, usr_p, fallback="Thank you for your wonderful review!")
+            draft = self._try_generate(
+                sys_p, usr_p,
+                fallback="Thank you for your wonderful review!",
+                module="mail_agent.property_review_response_generation",
+                llm_steps=llm_steps,
+            )
             action.update(
                 action="response_draft_ready",
                 draft=draft,
@@ -748,10 +773,15 @@ class MailPipeline:
                 "reply_options_count": len(action.get("reply_options", [])),
             },
         )
-        return action, [step]
+        return action, llm_steps + [step]
 
     def _generate_review_reply_options(
-        self, guest_name: str, rating: int, review_text: str
+        self,
+        guest_name: str,
+        rating: int,
+        review_text: str,
+        *,
+        llm_steps: list[StepLog] | None = None,
     ) -> list[dict[str, Any]]:
         """Generate 2-3 preset reply styles for a bad review."""
         options: list[dict[str, Any]] = []
@@ -769,19 +799,49 @@ class MailPipeline:
                 f"Guest: {guest_name}, Rating: {rating}/5. Review: {review_text[:500]}...\n\n"
                 f"Reply style: {instruction}"
             )
-            draft = self._try_generate(sys_p, usr_p, fallback="Thank you for your feedback.")
+            draft = self._try_generate(
+                sys_p, usr_p,
+                fallback="Thank you for your feedback.",
+                module="mail_agent.review_reply_option_generation",
+                llm_steps=llm_steps,
+            )
             options.append({"style": style_key, "draft": draft})
         return options
 
     # -- LLM helper ----------------------------------------------------------------
 
-    def _try_generate(self, system_prompt: str, user_prompt: str, fallback: str) -> str:
+    def _try_generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        fallback: str,
+        *,
+        module: str = "",
+        llm_steps: list[StepLog] | None = None,
+    ) -> str:
         if not self._chat.is_available:
             return fallback
         try:
             result = self._chat.generate(system_prompt=system_prompt, user_prompt=user_prompt)
-            return result or fallback
-        except Exception:
+            text = result or fallback
+            if module and llm_steps is not None:
+                llm_steps.append(StepLog(
+                    module=module,
+                    prompt={"system_prompt": system_prompt, "user_prompt": user_prompt},
+                    response={"text": text},
+                ))
+            return text
+        except Exception as exc:
+            if module and llm_steps is not None:
+                llm_steps.append(StepLog(
+                    module=module,
+                    prompt={"system_prompt": system_prompt, "user_prompt": user_prompt},
+                    response={
+                        "error": f"{type(exc).__name__}: {exc}",
+                        "fallback_used": True,
+                        "text": fallback,
+                    },
+                ))
             return fallback
 
     # -- Answer builder ------------------------------------------------------------

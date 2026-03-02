@@ -26,7 +26,7 @@ from app.agents.market_watch_agent import MarketWatchAgent, MarketWatchAgentConf
 from app.agents.pricing_agent import PricingAgent, PricingAgentConfig, outcome_to_response
 from app.agents.reviews_agent import ReviewsAgent, ReviewsAgentConfig
 from app.agents.router_agent import RouterAgent
-from app.architecture import ensure_architecture_png
+from app.architecture import ensure_architecture_svg
 from app.config import ActiveOwnerContext, load_settings
 from app.schemas import (
     ActiveOwnerContextResponse,
@@ -100,7 +100,7 @@ logger = logging.getLogger(__name__)
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
-ARCH_PATH = STATIC_DIR / "model_architecture.png"
+ARCH_PATH = STATIC_DIR / "model_architecture.svg"
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -841,15 +841,15 @@ market_watch_scheduler = MarketWatchScheduler(
 )
 
 
-def _refresh_architecture_png() -> None:
+def _refresh_architecture_svg() -> None:
     """Regenerate the architecture diagram, falling back to an existing file on write failure."""
 
     try:
-        ensure_architecture_png(ARCH_PATH)
+        ensure_architecture_svg(ARCH_PATH)
     except Exception:
         if not ARCH_PATH.exists():
             raise
-        logger.warning("model_architecture regeneration failed, serving existing PNG", exc_info=True)
+        logger.warning("model_architecture regeneration failed, serving existing SVG", exc_info=True)
 
 
 @app.on_event("startup")
@@ -857,7 +857,7 @@ def startup() -> None:
     """Ensure static assets exist and start autonomous scheduler when configured."""
 
     try:
-        _refresh_architecture_png()
+        _refresh_architecture_svg()
     except Exception as exc:
         logger.warning(
             "model_architecture generation skipped: %s: %s",
@@ -1200,22 +1200,48 @@ def agent_info() -> AgentInfoResponse:
                     ),
                 ],
             ),
+            AgentPromptExample(
+                prompt="Check my inbox and draft a reply for any guest messages.",
+                full_response=(
+                    "Processed 1 Airbnb email(s):\n\n"
+                    "1. [guest_message] Question about early check-in (Guest: Alice)\n"
+                    "   Action: draft_reply | Requires owner action\n"
+                    "   Draft: Hi Alice, thank you for reaching out! Early check-in may be ..."
+                ),
+                steps=[
+                    StepLog(
+                        module="mail_agent.guest_reply_generation",
+                        prompt={
+                            "system_prompt": (
+                                "You are a professional, friendly Airbnb host assistant. "
+                                "Draft a polite, helpful reply to the guest message below."
+                            ),
+                            "user_prompt": (
+                                "Guest name: Alice\n"
+                                "Subject: Question about early check-in\n"
+                                "Message: Hi, can we check in at noon?\n\nDraft a reply:"
+                            ),
+                        },
+                        response={"text": "Hi Alice, thank you for reaching out! Early check-in may be possible depending on availability. I'll confirm 24 hours before your arrival. Looking forward to hosting you!"},
+                    ),
+                ],
+            ),
         ],
     )
 
 
 @app.get("/api/model_architecture")
 def model_architecture() -> FileResponse:
-    """Required endpoint: returns architecture diagram PNG."""
+    """Required endpoint: returns architecture diagram SVG."""
 
     try:
-        _refresh_architecture_png()
+        _refresh_architecture_svg()
     except Exception as exc:
         raise HTTPException(
             status_code=500,
             detail=f"model_architecture unavailable: {type(exc).__name__}: {exc}",
         ) from exc
-    return FileResponse(path=str(ARCH_PATH), media_type="image/png", filename="model_architecture.png")
+    return FileResponse(path=str(ARCH_PATH), media_type="image/svg+xml", filename="model_architecture.svg")
 
 
 @app.get("/api/market_watch/alerts", response_model=MarketWatchAlertsResponse)
