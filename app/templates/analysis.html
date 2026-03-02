@@ -515,11 +515,10 @@
     async function runAnalysis(options={}){
       if(!selectedPropertyProfile||!selectedPropertyProfile.property_id){statusEl.textContent="No property selected.";return;}
       const provider=allowedProviders.has(providerEl.value)?providerEl.value:"default";
-      const autoRun=options.auto===true;
       const existingPrompt=promptEl.value.trim();
-      const prompt=existingPrompt||DEFAULT_ANALYSIS_PROMPT;
-      if(!existingPrompt&&autoRun){promptEl.value=DEFAULT_ANALYSIS_PROMPT;}
-      if(!prompt){statusEl.textContent="Please enter a prompt.";return;}
+      const effectivePrompt=existingPrompt||DEFAULT_ANALYSIS_PROMPT;
+      const requestPayload={property_id:selectedPropertyProfile.property_id,llm_provider:provider};
+      if(existingPrompt){requestPayload.prompt=existingPrompt;}
       try{localStorage.setItem(LLM_PROVIDER_STORAGE_KEY,provider);}catch(err){}
       runBtn.disabled=true;statusEl.innerHTML='<span class="inline-spinner" aria-hidden="true"></span> Running...';
       narrativeEl.textContent="Working...";narrativeEl.classList.add("empty-note");narrativeToggleEl.hidden=true;
@@ -527,14 +526,14 @@
       categoricalSectionEl.style.display="";categoricalWrapEl.innerHTML='<p class="empty-note">Loading...</p>';
       stepsEl.innerHTML="";analysisSummaryEl.classList.remove("visible");analysisAnswerEl.classList.remove("visible");resetSelectionDrawer();
       try{
-        const res=await fetch("/api/analysis",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({property_id:selectedPropertyProfile.property_id,prompt,llm_provider:provider})});
+        const res=await fetch("/api/analysis",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(requestPayload)});
         const data=await res.json();
         if(data.status==="error"){
           narrativeEl.textContent=data.error||"Analysis failed.";narrativeEl.classList.add("empty-note");narrativeToggleEl.hidden=true;
           numericWrapEl.innerHTML='<p class="empty-note">No numeric comparison data.</p>';numericLegendEl.innerHTML="";
           categoricalSectionEl.style.display="none";analysisSummaryEl.classList.remove("visible");analysisAnswerEl.classList.remove("visible");
         }else{
-          analysisState.latestPrompt=prompt;analysisState.analysisCategory=data.analysis_category||null;
+          analysisState.latestPrompt=effectivePrompt;analysisState.analysisCategory=data.analysis_category||null;
           renderSummary(data);
           renderAnswer(data);
           setNarrativePreview(data.response||"No narrative returned.");
