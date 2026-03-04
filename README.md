@@ -1,6 +1,6 @@
 # Airbnb Business Agent
 
-A multi-agent AI system for Airbnb property management intelligence. The platform provides review analysis, market monitoring, competitive benchmarking, dynamic pricing, and email management through specialized domain agents orchestrated by a central router.
+A multi-agent AI system for Airbnb property management intelligence. The platform provides review analysis, market monitoring, competitive benchmarking, dynamic pricing, and email management through specialized domain agents with dedicated API endpoints.
 
 ![Architecture](docs/architecture.svg)
 
@@ -146,17 +146,17 @@ Open `http://localhost:8000/` for the UI or `http://localhost:8000/docs` for the
 | `GET` | `/api/model_architecture` | Architecture diagram (SVG) |
 | `GET` | `/api/active_owner_context` | Current property context |
 | `GET` | `/api/property_profiles` | Available property profiles |
-| `POST` | `/api/execute` | Route a prompt to the appropriate agent |
+| `POST` | `/api/execute` | Run a reviews agent query |
 | `POST` | `/api/market_watch/run` | Trigger a market watch cycle |
 | `GET` | `/api/market_watch/alerts` | Retrieve market alerts |
 | `POST` | `/api/pricing` | Get pricing recommendation |
-| `POST` | `/api/analysis/run` | Run competitive analysis |
+| `POST` | `/api/analysis` | Run competitive analysis |
 
 ## Project Structure
 
 ```
 app/
-  agents/          # Router + 5 domain agents (reviews, market_watch, analyst, pricing, mail)
+  agents/          # 5 domain agents (reviews, market_watch, analyst, pricing, mail)
   services/        # Shared service layer (LLM, embeddings, vector DB, Gmail, market data)
   templates/       # Jinja2 HTML pages (dashboard, market watch, mail, analysis, pricing)
   static/          # CSS + generated architecture diagram

@@ -15,7 +15,6 @@ from pydantic import ValidationError
 from app.agents.reviews_agent import ReviewsAgent, ReviewsAgentConfig
 from app.agents.analyst_agent import AnalystAgent
 from app.agents.market_watch_agent import MarketWatchAgent, MarketWatchAgentConfig
-from app.agents.router_agent import RouterAgent
 from app.schemas import AnalysisExplainSelectionRequest, AnalysisRequest, ExecuteRequest, PricingRequest
 from app.services.pinecone_retriever import RetrievedReview
 from app.services.web_review_ingest import WebIngestResult
@@ -546,55 +545,3 @@ def test_analyst_agent_without_chat_uses_fallback_summary() -> None:
     assert "analyst_agent.answer_generation" in module_names
 
 
-# -- Router contract tests --
-
-
-def test_router_reviews_keywords() -> None:
-    router = RouterAgent()
-    decision, step = router.route("What do guests say about wifi?")
-    assert decision.agent_name == "reviews_agent"
-    assert step.module == "router_agent"
-    assert step.response["selected_agent"] == "reviews_agent"
-
-
-def test_router_market_keywords() -> None:
-    router = RouterAgent()
-    decision, step = router.route("Any nearby events next week?")
-    assert decision.agent_name == "market_watch_agent"
-    assert step.module == "router_agent"
-
-
-def test_router_analyst_keywords() -> None:
-    router = RouterAgent()
-    decision, step = router.route("Can you benchmark my property specs?")
-    assert decision.agent_name == "analyst_agent"
-    assert step.module == "router_agent"
-
-
-def test_router_pricing_keywords() -> None:
-    router = RouterAgent()
-    decision, step = router.route("What should I charge next weekend?")
-    assert decision.agent_name == "pricing_agent"
-    assert step.module == "router_agent"
-
-
-def test_router_price_comparison_prefers_analyst() -> None:
-    router = RouterAgent()
-    decision, step = router.route("How do my prices compare to nearby competitors?")
-    assert decision.agent_name == "analyst_agent"
-    assert step.module == "router_agent"
-
-
-def test_router_fallback_to_reviews() -> None:
-    router = RouterAgent()
-    decision, step = router.route("Tell me something interesting")
-    assert decision.agent_name == "reviews_agent"
-    assert "Fallback" in decision.reason
-
-
-def test_router_graph_produces_same_result() -> None:
-    router = RouterAgent()
-    decision_direct, step_direct = router.route("What about wifi?")
-    decision_graph, step_graph = router.route_via_graph("What about wifi?")
-    assert decision_direct.agent_name == decision_graph.agent_name
-    assert step_direct.module == step_graph.module

@@ -576,24 +576,3 @@ class TestDirectGmailClientParsing:
         assert "INBOX" in email.labels
 
 
-class TestRouterMailKeywords:
-    def test_inbox_routes_to_mail(self) -> None:
-        from app.agents.router_agent import RouterAgent
-
-        router = RouterAgent()
-        decision, step = router.route("check my email inbox")
-        assert decision.agent_name == "mail_agent"
-
-    def test_mail_keyword(self) -> None:
-        from app.agents.router_agent import RouterAgent
-
-        router = RouterAgent()
-        decision, _ = router.route("any new mail?")
-        assert decision.agent_name == "mail_agent"
-
-    def test_gmail_keyword(self) -> None:
-        from app.agents.router_agent import RouterAgent
-
-        router = RouterAgent()
-        decision, _ = router.route("check gmail for messages")
-        assert decision.agent_name == "mail_agent"

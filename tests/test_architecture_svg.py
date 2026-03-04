@@ -8,7 +8,7 @@ def test_render_architecture_svg_contains_key_modules() -> None:
 
     assert svg.lstrip().startswith("<svg")
     assert "Airbnb Business Agent" in svg
-    assert "router_agent" in svg
+    assert "reviews_agent" in svg
     assert "market_watch_agent" in svg
     assert "Supabase Listings" in svg
     assert 'id="arrowControl"' in svg

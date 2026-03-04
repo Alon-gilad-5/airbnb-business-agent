@@ -143,17 +143,8 @@ def render_architecture_svg() -> str:
         w=320,
         h=110,
         title="Input API",
-        lines=("POST /api/execute", "prompt + context"),
+        lines=("dedicated endpoints per agent", "prompt + context"),
         style=API_STYLE,
-    )
-    router = Box(
-        x=560,
-        y=245,
-        w=340,
-        h=120,
-        title="router_agent",
-        lines=("intent classification", "reviews / market / analyst / pricing / mail"),
-        style=AGENT_STYLE,
     )
     out = Box(
         x=1270,
@@ -276,18 +267,20 @@ def render_architecture_svg() -> str:
         style=INTEGRATION_STYLE,
     )
 
-    fan_offsets = (-110, -55, 0, 55, 110)
     agents = (reviews, market, analyst, pricing, mail)
-    control_routes = [
-        _route([inp.right, router.left], stroke="#2563eb", marker_id="arrowControl", width=4),
-        _route([router.right, out.left], stroke="#2563eb", marker_id="arrowControl", width=4),
-    ]
-    for offset, agent in zip(fan_offsets, agents):
-        start = (router.bottom[0] + offset, router.bottom[1])
-        mid_y = start[1] + 26
+    control_routes = []
+    for agent in agents:
+        mid_y = agent.top[1] - 16
         control_routes.append(
             _route(
-                [start, (start[0], mid_y), (agent.top[0], mid_y), agent.top],
+                [inp.right, (inp.right[0] + 30, inp.right[1]), (inp.right[0] + 30, mid_y), (agent.top[0], mid_y), agent.top],
+                stroke="#2563eb",
+                marker_id="arrowControl",
+            )
+        )
+        control_routes.append(
+            _route(
+                [agent.right, (out.left[0] - 30, agent.right[1]), (out.left[0] - 30, out.left[1]), out.left],
                 stroke="#2563eb",
                 marker_id="arrowControl",
             )
@@ -338,7 +331,6 @@ def render_architecture_svg() -> str:
 
     boxes_svg = "".join(_box_svg(box) for box in (
         inp,
-        router,
         out,
         reviews,
         market,
@@ -370,7 +362,7 @@ def render_architecture_svg() -> str:
             w=center_panel[2],
             h=center_panel[3],
             label="AGENT ORCHESTRATION",
-            subtitle="Router-directed domain agents with focused responsibilities",
+            subtitle="Domain agents with dedicated endpoints",
             accent="#2563eb",
         )
         + _panel(
@@ -387,7 +379,7 @@ def render_architecture_svg() -> str:
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{SVG_WIDTH}" height="{SVG_HEIGHT}"
 viewBox="0 0 {SVG_WIDTH} {SVG_HEIGHT}" role="img" aria-labelledby="title desc">
   <title id="title">Airbnb Business Agent system architecture</title>
-  <desc id="desc">A multi-agent architecture with router, review, market watch, analyst, pricing, and mail agents connected to platform services and external integrations.</desc>
+  <desc id="desc">A multi-agent architecture with review, market watch, analyst, pricing, and mail agents connected to platform services and external integrations.</desc>
   <defs>
     <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#f8fbff"/>
@@ -422,7 +414,7 @@ viewBox="0 0 {SVG_WIDTH} {SVG_HEIGHT}" role="img" aria-labelledby="title desc">
   <g>
     <text x="60" y="72" font-size="36" font-weight="800" fill="#0f172a">Airbnb Business Agent</text>
     <text x="60" y="110" font-size="20" font-weight="500" fill="#475569">
-      Router-directed multi-agent platform for reviews, market intelligence, analysis, pricing, and inbox operations
+      Multi-agent platform for reviews, market intelligence, analysis, pricing, and inbox operations
     </text>
   </g>
 

@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1880" height="1160"
 viewBox="0 0 1880 1160" role="img" aria-labelledby="title desc">
   <title id="title">Airbnb Business Agent system architecture</title>
-  <desc id="desc">A multi-agent architecture with router, review, market watch, analyst, pricing, and mail agents connected to platform services and external integrations.</desc>
+  <desc id="desc">A multi-agent architecture with review, market watch, analyst, pricing, and mail agents connected to platform services and external integrations.</desc>
   <defs>
     <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#f8fbff"/>
@@ -36,7 +36,7 @@ viewBox="0 0 1880 1160" role="img" aria-labelledby="title desc">
   <g>
     <text x="60" y="72" font-size="36" font-weight="800" fill="#0f172a">Airbnb Business Agent</text>
     <text x="60" y="110" font-size="20" font-weight="500" fill="#475569">
-      Router-directed multi-agent platform for reviews, market intelligence, analysis, pricing, and inbox operations
+      Multi-agent platform for reviews, market intelligence, analysis, pricing, and inbox operations
     </text>
   </g>
 
@@ -70,7 +70,7 @@ viewBox="0 0 1880 1160" role="img" aria-labelledby="title desc">
       <text x="560" y="216" font-size="15" font-weight="800" letter-spacing="2"
             fill="#334155">AGENT ORCHESTRATION</text>
       <text x="560" y="242" font-size="16" font-weight="500" fill="#64748b">
-        Router-directed domain agents with focused responsibilities
+        Domain agents with dedicated endpoints
       </text>
     </g>
     
@@ -87,7 +87,7 @@ viewBox="0 0 1880 1160" role="img" aria-labelledby="title desc">
     
 
   <g opacity="0.98">
-    <polyline points="410,305 560,305" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="900,305 1270,305" fill="none" stroke="#2563eb" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="620,365 620,391 730,391 730,410" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="675,365 675,391 730,391 730,550" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="730,365 730,391 730,391 730,690" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="785,365 785,391 730,391 730,830" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="840,365 840,391 730,391 730,970" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/>
+    <polyline points="410,305 440,305 440,394 730,394 730,410" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="900,465 1240,465 1240,305 1270,305" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="410,305 440,305 440,534 730,534 730,550" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="900,605 1240,605 1240,305 1270,305" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="410,305 440,305 440,674 730,674 730,690" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="900,745 1240,745 1240,305 1270,305" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="410,305 440,305 440,814 730,814 730,830" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="900,885 1240,885 1240,305 1270,305" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="410,305 440,305 440,954 730,954 730,970" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/><polyline points="900,1025 1240,1025 1240,305 1270,305" fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowControl)"/>
     <polyline points="560,446 410,466" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowData)"/><polyline points="560,483 460,483 460,686 410,686" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowData)"/><polyline points="560,885 455,885 455,723 410,723" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowData)"/><polyline points="560,1025 440,1025 440,723 410,723" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowData)"/><polyline points="900,605 1270,605" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowData)"/><polyline points="900,623 950,623 950,726 1270,726" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowData)"/><polyline points="900,745 980,745 980,866 1270,866" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowData)"/><polyline points="900,885 1270,885" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowData)"/><polyline points="900,866 1010,866 1010,623 1270,623" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowData)"/><polyline points="900,1025 1270,1025" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowData)"/>
     <polyline points="250,930 250,623 560,623" fill="none" stroke="#16a34a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arrowSchedule)"/>
   </g>
@@ -101,18 +101,7 @@ viewBox="0 0 1880 1160" role="img" aria-labelledby="title desc">
             fill="#f59e0b" opacity="0.95"/>
       <rect x="90" y="262" width="320" height="18"
             fill="#f59e0b" opacity="0.08"/>
-      <text x="112" y="296" font-size="22" font-weight="700" fill="#7c2d12">Input API</text><text x="112" y="330" font-size="17" font-weight="500" fill="#475569"><tspan x="112" dy="0">POST /api/execute</tspan><tspan x="112" dy="23">prompt + context</tspan></text>
-    </g>
-    
-    <g>
-      <rect x="560" y="245" width="340" height="120" rx="24"
-            fill="#eff6ff" stroke="#60a5fa" stroke-width="2"
-            filter="url(#softShadow)"/>
-      <rect x="560" y="245" width="340" height="12" rx="24"
-            fill="#2563eb" opacity="0.95"/>
-      <rect x="560" y="257" width="340" height="18"
-            fill="#2563eb" opacity="0.08"/>
-      <text x="582" y="291" font-size="22" font-weight="700" fill="#0f172a">router_agent</text><text x="582" y="325" font-size="17" font-weight="500" fill="#475569"><tspan x="582" dy="0">intent classification</tspan><tspan x="582" dy="23">reviews / market / analyst / pricing / mail</tspan></text>
+      <text x="112" y="296" font-size="22" font-weight="700" fill="#7c2d12">Input API</text><text x="112" y="330" font-size="17" font-weight="500" fill="#475569"><tspan x="112" dy="0">dedicated endpoints per agent</tspan><tspan x="112" dy="23">prompt + context</tspan></text>
     </g>
     
     <g>

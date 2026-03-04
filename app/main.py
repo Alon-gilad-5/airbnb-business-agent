@@ -25,7 +25,6 @@ from app.agents.mail_agent import MailAgent, MailAgentConfig
 from app.agents.market_watch_agent import MarketWatchAgent, MarketWatchAgentConfig
 from app.agents.pricing_agent import PricingAgent, PricingAgentConfig, outcome_to_response
 from app.agents.reviews_agent import ReviewsAgent, ReviewsAgentConfig
-from app.agents.router_agent import RouterAgent
 from app.architecture import ensure_architecture_svg
 from app.config import ActiveOwnerContext, load_settings
 from app.schemas import (
@@ -385,7 +384,6 @@ _push_worker_state_lock = threading.Lock()
 _push_worker_running = False
 _pending_push_history_id: str | None = None
 
-router_agent = RouterAgent()
 agent_registry: dict[str, Agent] = {
     "reviews_agent": reviews_agents_by_provider[default_chat_provider],
     "market_watch_agent": market_watch_agent,
@@ -1048,11 +1046,11 @@ def agent_info() -> AgentInfoResponse:
 
     example_steps = [
         StepLog(
-            module="router_agent",
+            module="dispatch",
             prompt={"user_prompt": "What do guests think about wifi in Santa Clara?"},
             response={
                 "selected_agent": "reviews_agent",
-                "reason": "Matched hospitality/review intent keywords.",
+                "reason": "Direct dispatch to reviews_agent.",
             },
         ),
         StepLog(
@@ -1108,97 +1106,6 @@ def agent_info() -> AgentInfoResponse:
                     "in specific rooms. Confidence: medium."
                 ),
                 steps=example_steps,
-            ),
-            AgentPromptExample(
-                prompt="Compare my review scores against nearby competitors.",
-                full_response=(
-                    "Your property is above the neighbor average on cleanliness and communication, "
-                    "roughly in line on overall rating, and weaker on value. The clearest opportunity "
-                    "is improving perceived value without sacrificing your strongest service signals."
-                ),
-                steps=[
-                    StepLog(
-                        module="router_agent",
-                        prompt={"user_prompt": "Compare my review scores against nearby competitors."},
-                        response={"selected_agent": "analyst_agent", "reason": "Matched analyst/benchmark intent keywords."},
-                    ),
-                    StepLog(
-                        module="analyst_agent.neighbor_lookup",
-                        prompt={"property_id": "42409434"},
-                        response={"neighbor_count": 20, "neighbor_ids": ["2722835", "14559400"]},
-                    ),
-                    StepLog(
-                        module="analyst_agent.data_fetch",
-                        prompt={"category": "review_scores", "property_id": "42409434"},
-                        response={"rows_returned": 18, "owner_found": True, "neighbor_rows_found": 17},
-                    ),
-                    StepLog(
-                        module="analyst_agent.comparison_compute",
-                        prompt={"category": "review_scores"},
-                        response={"numeric_items": 7, "categorical_items": 0, "neighbor_rows_used": 17},
-                    ),
-                    StepLog(
-                        module="analyst_agent.answer_generation",
-                        prompt={"model": settings.chat_model, "system_prompt": "...", "user_prompt": "..."},
-                        response={"text": "Your property is above the neighbor average on cleanliness and communication..."},
-                    ),
-                ],
-            ),
-            AgentPromptExample(
-                prompt="What should I charge next weekend?",
-                full_response=(
-                    "Raise nightly price from $145 to about $154. Confidence: medium. "
-                    "You are priced below nearby comps, your review position is competitive, "
-                    "and your review base supports a modest premium."
-                ),
-                steps=[
-                    StepLog(
-                        module="router_agent",
-                        prompt={"user_prompt": "What should I charge next weekend?"},
-                        response={"selected_agent": "pricing_agent", "reason": "Matched pricing recommendation intent keywords."},
-                    ),
-                    StepLog(
-                        module="pricing_agent.context_resolve",
-                        prompt={"context_keys": ["property_id", "latitude", "longitude"]},
-                        response={"property_id": "42409434", "horizon_days": 14, "price_mode": "recommended"},
-                    ),
-                    StepLog(
-                        module="pricing_agent.neighbor_lookup",
-                        prompt={"property_id": "42409434"},
-                        response={"neighbor_count": 20, "neighbor_ids": ["2722835", "14559400"]},
-                    ),
-                    StepLog(
-                        module="pricing_agent.data_fetch",
-                        prompt={"property_id": "42409434"},
-                        response={
-                            "current_price": 145.0,
-                            "neighbor_avg_price": 152.0,
-                            "owner_number_of_reviews": 120,
-                            "neighbor_avg_number_of_reviews": 74.0,
-                        },
-                    ),
-                    StepLog(
-                        module="pricing_agent.market_signal_fetch",
-                        prompt={"horizon_days": 14},
-                        response={"market_pressure": "strong", "event_count": 2, "holiday_count": 1},
-                    ),
-                    StepLog(
-                        module="pricing_agent.recommendation_compute",
-                        prompt={"price_mode": "recommended", "confidence": "medium"},
-                        response={
-                            "base_price_action": "raise",
-                            "base_price_change_pct": 6.0,
-                            "review_volume_position": "above_market",
-                            "review_volume_adjustment_pct": 1.0,
-                            "final_price_change_pct": 7.0,
-                        },
-                    ),
-                    StepLog(
-                        module="pricing_agent.answer_generation",
-                        prompt={"model": settings.chat_model, "system_prompt": "...", "user_prompt": "..."},
-                        response={"text": "Raise nightly price from $145 to about $154..."},
-                    ),
-                ],
             ),
             AgentPromptExample(
                 prompt="Check my inbox and draft a reply for any guest messages.",
@@ -1482,7 +1389,7 @@ def explain_analysis_selection(payload: AnalysisExplainSelectionRequest) -> Anal
 
 @app.post("/api/execute", response_model=ExecuteResponse)
 def execute(payload: ExecuteRequest) -> ExecuteResponse:
-    """Required endpoint: route request, run selected agent, return full trace."""
+    """Required endpoint: run reviews agent and return full trace."""
 
     steps: list[StepLog] = []
     try:
@@ -1496,94 +1403,33 @@ def execute(payload: ExecuteRequest) -> ExecuteResponse:
         if resolved_provider not in VALID_CHAT_PROVIDERS:
             resolved_provider = default_chat_provider
 
-        decision, route_step = router_agent.route(payload.prompt)
-        if decision.agent_name == "market_watch_agent" and not settings.market_watch_enabled:
-            decision.agent_name = "reviews_agent"
-            decision.reason += " market_watch is disabled, rerouted to reviews_agent."
-            route_step.response["selected_agent"] = decision.agent_name
-            route_step.response["reason"] = decision.reason
-        if decision.agent_name == "pricing_agent" and not settings.pricing_enabled:
+        steps.append(StepLog(
+            module="dispatch",
+            prompt={"user_prompt": payload.prompt},
+            response={
+                "selected_agent": "reviews_agent",
+                "reason": "Direct dispatch to reviews_agent.",
+                "llm_provider_requested": requested_provider,
+                "llm_provider_resolved": resolved_provider,
+            },
+        ))
+
+        provider_chat_service = chat_services_by_provider.get(resolved_provider)
+        if provider_is_explicit and (provider_chat_service is None or not provider_chat_service.is_available):
             return ExecuteResponse(
                 status="error",
-                error="pricing_agent is disabled (PRICING_ENABLED=false).",
+                error=(
+                    f"Requested llm_provider '{resolved_provider}' is not configured. "
+                    f"Set required provider env vars and retry."
+                ),
                 response=None,
-                steps=steps + [route_step],
+                steps=steps,
             )
-        if decision.agent_name == "mail_agent" and not settings.mail_enabled:
-            decision.agent_name = "reviews_agent"
-            decision.reason += " mail_agent is disabled, rerouted to reviews_agent."
-            route_step.response["selected_agent"] = decision.agent_name
-            route_step.response["reason"] = decision.reason
-        route_step.response["llm_provider_requested"] = requested_provider
-        route_step.response["llm_provider_resolved"] = resolved_provider
-        steps.append(route_step)
-
-        if decision.agent_name == "reviews_agent":
-            provider_chat_service = chat_services_by_provider.get(resolved_provider)
-            if provider_is_explicit and (provider_chat_service is None or not provider_chat_service.is_available):
-                return ExecuteResponse(
-                    status="error",
-                    error=(
-                        f"Requested llm_provider '{resolved_provider}' is not configured. "
-                        f"Set required provider env vars and retry."
-                    ),
-                    response=None,
-                    steps=steps,
-                )
-            target_agent = reviews_agents_by_provider.get(resolved_provider)
-            if target_agent is None:
-                target_agent = reviews_agents_by_provider.get(default_chat_provider)
-        elif decision.agent_name == "mail_agent":
-            provider_chat_service = chat_services_by_provider.get(resolved_provider)
-            if provider_is_explicit and (provider_chat_service is None or not provider_chat_service.is_available):
-                return ExecuteResponse(
-                    status="error",
-                    error=(
-                        f"Requested llm_provider '{resolved_provider}' is not configured. "
-                        f"Set required provider env vars and retry."
-                    ),
-                    response=None,
-                    steps=steps,
-                )
-            target_agent = mail_agents_by_provider.get(resolved_provider)
-            if target_agent is None:
-                target_agent = mail_agents_by_provider.get(default_chat_provider)
-        elif decision.agent_name == "analyst_agent":
-            provider_chat_service = chat_services_by_provider.get(resolved_provider)
-            if provider_is_explicit and (provider_chat_service is None or not provider_chat_service.is_available):
-                return ExecuteResponse(
-                    status="error",
-                    error=(
-                        f"Requested llm_provider '{resolved_provider}' is not configured. "
-                        f"Set required provider env vars and retry."
-                    ),
-                    response=None,
-                    steps=steps,
-                )
-            target_agent = analysis_agents_by_provider.get(resolved_provider)
-            if target_agent is None:
-                target_agent = analysis_agents_by_provider.get(default_chat_provider)
-        elif decision.agent_name == "pricing_agent":
-            provider_chat_service = chat_services_by_provider.get(resolved_provider)
-            if provider_is_explicit and (provider_chat_service is None or not provider_chat_service.is_available):
-                return ExecuteResponse(
-                    status="error",
-                    error=(
-                        f"Requested llm_provider '{resolved_provider}' is not configured. "
-                        f"Set required provider env vars and retry."
-                    ),
-                    response=None,
-                    steps=steps,
-                )
-            target_agent = pricing_agents_by_provider.get(resolved_provider)
-            if target_agent is None:
-                target_agent = pricing_agents_by_provider.get(default_chat_provider)
-        else:
-            # market_watch is deterministic and does not use chat provider override.
-            target_agent = agent_registry.get(decision.agent_name)
-
+        target_agent = reviews_agents_by_provider.get(resolved_provider)
         if target_agent is None:
-            raise HTTPException(status_code=500, detail=f"No agent registered as '{decision.agent_name}'")
+            target_agent = reviews_agents_by_provider.get(default_chat_provider)
+        if target_agent is None:
+            raise HTTPException(status_code=500, detail="No reviews_agent available")
 
         context = _build_effective_context(payload)
         result = target_agent.run(payload.prompt, context=context)
@@ -1597,7 +1443,6 @@ def execute(payload: ExecuteRequest) -> ExecuteResponse:
                 )
         return ExecuteResponse(status="ok", error=None, response=result.response, steps=steps)
     except Exception as exc:
-        # Keep response format exactly aligned with project error schema.
         return ExecuteResponse(
             status="error",
             error=f"{type(exc).__name__}: {exc}",
